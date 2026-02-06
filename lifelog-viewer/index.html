@@ -568,7 +568,7 @@
       };
 
       const avgHealth = (key) => {
-        const valid = entries.filter(e => e.health && e.health[key] != null);
+        const valid = entries.filter(e => e.health && e.health[key] != null && !isNaN(parseFloat(e.health[key])));
         return valid.length ? (valid.reduce((s, e) => s + parseFloat(e.health[key]), 0) / valid.length) : null;
       };
 
@@ -643,6 +643,9 @@
 
       if (entries.length === 0) return;
 
+      const SLEEP_GOAL = 8; // hours
+      const EXERCISE_GOAL = 60; // minutes
+
       // Group by date and get averages
       const dateGroups = {};
       entries.forEach(e => {
@@ -659,6 +662,14 @@
           const valid = dayEntries.filter(e => e[key] != null);
           return valid.length ? valid.reduce((s, e) => s + e[key], 0) / valid.length : null;
         };
+        const avgHealth = (key) => {
+          const valid = dayEntries.filter(e => e.health && e.health[key] != null && !isNaN(parseFloat(e.health[key])));
+          return valid.length ? valid.reduce((s, e) => s + parseFloat(e.health[key]), 0) / valid.length : null;
+        };
+
+        const sleepVal = avgHealth('sleep');
+        const exerciseVal = avgHealth('exerciseMinutes');
+
         return {
           date: dateStr,
           mood: avg('mood') ? (avg('mood') / 5) * 100 : null, // Normalize to 0-100
@@ -667,7 +678,8 @@
           clarity: avg('clarity'),
           motivation: avg('motivation'),
           fulfillment: avg('fulfillment'),
-
+          sleep: sleepVal ? Math.min((sleepVal / SLEEP_GOAL) * 100, 100) : null,
+          exercise: exerciseVal ? Math.min((exerciseVal / EXERCISE_GOAL) * 100, 100) : null,
         };
       });
 
@@ -675,7 +687,7 @@
       chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: displayDates.map(d => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })),
+          labels: displayDates.map(d => formatDate(d)), // Use our local formatDate helper
           datasets: [
             {
               label: 'Mood',
@@ -684,6 +696,7 @@
               backgroundColor: 'rgba(0, 255, 136, 0.1)',
               tension: 0.4,
               fill: true,
+              order: 1
             },
             {
               label: 'Energy',
@@ -692,16 +705,32 @@
               tension: 0.4,
             },
             {
+              label: 'Sleep',
+              data: dayData.map(d => d.sleep),
+              borderColor: '#5AC8FA',
+              tension: 0.4,
+              borderDash: [5, 5],
+            },
+            {
+              label: 'Exercise',
+              data: dayData.map(d => d.exercise),
+              borderColor: '#FF2D55',
+              tension: 0.4,
+              borderDash: [5, 5],
+            },
+            {
               label: 'Clarity',
               data: dayData.map(d => d.clarity),
               borderColor: '#64D2FF',
               tension: 0.4,
+              hidden: true,
             },
             {
               label: 'Stress',
               data: dayData.map(d => d.stress),
               borderColor: '#FF3B30',
               tension: 0.4,
+              hidden: true,
             },
             {
               label: 'Motivation',
@@ -717,7 +746,6 @@
               tension: 0.4,
               hidden: true,
             },
-
           ],
         },
         options: {
@@ -734,6 +762,20 @@
                 ci.update();
               }
             },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  let label = context.dataset.label || '';
+                  if (label) {
+                    label += ': ';
+                  }
+                  if (context.parsed.y !== null) {
+                    label += Math.round(context.parsed.y) + '%';
+                  }
+                  return label;
+                }
+              }
+            }
           },
           scales: {
             y: {
