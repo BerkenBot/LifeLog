@@ -476,12 +476,13 @@
     let currentDays = 7;
     let chart = null;
 
-    // Check for saved URL
-    const savedUrl = localStorage.getItem('lifelogGistUrl');
-    if (savedUrl) {
-      document.getElementById('gistUrl').value = savedUrl;
-      loadData();
-    }
+    // Default Gist URL - auto-loads on page open
+    const DEFAULT_GIST_URL = 'https://gist.githubusercontent.com/justinberken/32e644906d9079c1601b4a04dcf7aa8e/raw/lifelog-data.json';
+
+    // Auto-load data on page load
+    document.getElementById('gistUrl').value = DEFAULT_GIST_URL;
+    document.getElementById('setup').style.display = 'none';
+    loadData();
 
     // Period selector
     document.querySelectorAll('.period-btn').forEach(btn => {
