@@ -8,7 +8,7 @@ export const MOODS = [
 
 export const METRICS = [
   { key: 'stress', label: 'Stress', icon: '😰', color: '#FF3B30', low: 'Calm', high: 'Stressed', inverse: true },
-  { key: 'energy', label: 'Energy', icon: '⚡', color: '#FF9F0A', low: 'Drained', high: 'Energized' },
+  { key: 'energy', label: 'Energy', icon: '🔋', color: '#FF9F0A', low: 'Drained', high: 'Energized' },
   { key: 'clarity', label: 'Clarity', icon: '🧠', color: '#64D2FF', low: 'Foggy', high: 'Clear' },
   { key: 'motivation', label: 'Motivation', icon: '🎯', color: '#5E5CE6', low: 'Low', high: 'Driven' },
   { key: 'fulfillment', label: 'Fulfillment', icon: '✨', color: '#0A84FF', low: 'Empty', high: 'Fulfilled' },

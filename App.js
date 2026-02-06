@@ -153,13 +153,14 @@ function AppContent() {
   const loadData = async () => {
     try {
       // Load everything in parallel
-      const [data, settings, isConfigured, url, gistConfigured, savedGistUrl] = await Promise.all([
+      const [data, settings, isConfigured, url, gistConfigured, savedGistUrl, savedGistToken] = await Promise.all([
         storage.getEntries(),
         storage.getUserSettings(),
         SheetsSync.isConfigured(),
         SheetsSync.getUrl(),
         GistSync.isConfigured(),
-        GistSync.getGistUrl()
+        GistSync.getGistUrl(),
+        GistSync.getToken()
       ]);
 
       setEntries(data);
@@ -168,6 +169,7 @@ function AppContent() {
       setSheetsUrl(url || '');
       setIsGistConnected(gistConfigured);
       setGistUrl(savedGistUrl || '');
+      setGistToken(savedGistToken || '');
     } catch (e) {
       console.error('Failed to load data:', e);
     } finally {
@@ -257,7 +259,8 @@ function AppContent() {
       });
       // Set entryDate from the editing entry's timestamp so user can edit it
       setEntryDate(new Date(entry.timestamp));
-      setCheckinMode('full');
+      // Default to the entry's original type (quick or full)
+      setCheckinMode(entry.type || 'full');
     } else {
       resetForm();
       setCheckinMode(mode);
@@ -284,7 +287,7 @@ function AppContent() {
     const entry = {
       id: editingEntry?.id || `${dateToUse.getTime()}`,
       timestamp: dateToUse.toISOString(),
-      date: dateToUse.toISOString().split('T')[0],
+      date: toLocalDateStr(dateToUse),
       time: dateToUse.toTimeString().slice(0, 5),
       type: checkinMode,
       mood,
@@ -345,9 +348,9 @@ function AppContent() {
 
   // Derived data
   const todayEntries = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = toLocalDateStr(new Date());
     return entries.filter(e => e.date === today).sort(
-      (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      (a, b) => (b.time || '').localeCompare(a.time || '')
     );
   }, [entries]);
 
@@ -356,6 +359,10 @@ function AppContent() {
     entries.forEach(e => {
       if (!groups[e.date]) groups[e.date] = [];
       groups[e.date].push(e);
+    });
+    // Sort each day's entries by time (latest first)
+    Object.values(groups).forEach(dayEntries => {
+      dayEntries.sort((a, b) => (b.time || '').localeCompare(a.time || ''));
     });
     return Object.entries(groups).sort((a, b) => b[0].localeCompare(a[0]));
   }, [entries]);
@@ -450,7 +457,7 @@ function AppContent() {
             <Text style={styles.fabSecondaryText}>Full Log</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.fab} onPress={() => openCheckin('quick')}>
-            <Text style={styles.fabText}>+</Text>
+            <Text style={[styles.fabText, { color: COLORS.text }]}>+</Text>
           </TouchableOpacity>
         </View>
 
@@ -459,6 +466,7 @@ function AppContent() {
           visible={showCheckin}
           onClose={() => { setShowCheckin(false); resetForm(); }}
           onSave={save}
+          onDelete={(id) => { setShowCheckin(false); resetForm(); deleteEntry(id); }}
           mode={checkinMode}
           setMode={setCheckinMode}
           mood={mood}
@@ -733,14 +741,6 @@ function TodayView({ entries, onEdit, onDelete, colors: COLORS }) {
         })}
       </View>
 
-      {/* Intraday Chart */}
-      {entries.length >= 2 && (
-        <View style={styles.card}>
-          <Text style={styles.label}>Today's Flow</Text>
-          <IntradayChart entries={entries} />
-        </View>
-      )}
-
       <View style={{ height: 120 }} />
     </View>
   );
@@ -789,8 +789,16 @@ function HistoryView({ groupedEntries, onEdit, onDelete, colors: COLORS }) {
               <View style={styles.dayEntries}>
                 {dayEntries.map(entry => {
                   const m = MOODS.find(x => x.value === entry.mood) || MOODS[2];
+                  // Full entries get a distinct gray background
+                  const entryBg = entry.type === 'full'
+                    ? (COLORS.background === '#F2F2F7' ? '#D1D1D6' : '#3A3A3C')
+                    : COLORS.background;
+
+                  // Indent quick entries
+                  const entryMarginLeft = entry.type === 'quick' ? 25 : 0;
+
                   return (
-                    <View key={entry.id} style={[styles.dayEntry, { backgroundColor: COLORS.background }]}>
+                    <TouchableOpacity key={entry.id} style={[styles.dayEntry, { backgroundColor: entryBg, marginLeft: entryMarginLeft }]} onPress={() => onEdit(entry)}>
                       <Text style={styles.dayEntryEmoji}>{m.emoji}</Text>
                       <View style={styles.dayEntryContent}>
                         <Text style={[styles.dayEntryTime, { color: COLORS.text }]}>{formatTime(entry.time)}</Text>
@@ -799,10 +807,8 @@ function HistoryView({ groupedEntries, onEdit, onDelete, colors: COLORS }) {
                       {entry.type === 'full' && (
                         <Text style={[styles.entryTypeBadge, { color: COLORS.textSecondary }]}>Full Log</Text>
                       )}
-                      <TouchableOpacity onPress={() => onEdit(entry)}>
-                        <Text>✏️</Text>
-                      </TouchableOpacity>
-                    </View>
+                      <Text>✏️</Text>
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -1168,7 +1174,7 @@ function UnifiedTrendChart({ entries, period, sleepGoal, exerciseGoal, colors: C
 // CHECK-IN MODAL
 // ============================================================
 function CheckInModal({
-  visible, onClose, onSave, mode, setMode,
+  visible, onClose, onSave, onDelete, mode, setMode,
   mood, setMood, metrics, setMetrics,
   metricNotes, setMetricNotes,
   note, setNote, health, setHealth, editingEntry,
@@ -1405,6 +1411,16 @@ function CheckInModal({
               </View>
             )}
 
+            {/* Delete button - only when editing */}
+            {editingEntry && (
+              <TouchableOpacity
+                style={{ backgroundColor: '#FF3B30', borderRadius: 12, padding: 16, marginTop: 24, alignItems: 'center' }}
+                onPress={() => onDelete(editingEntry.id)}
+              >
+                <Text style={{ color: '#fff', fontSize: 16, fontWeight: '600' }}>🗑️ Delete Entry</Text>
+              </TouchableOpacity>
+            )}
+
             <View style={{ height: 40 }} />
           </ScrollView>
         </SafeAreaView>
@@ -1528,9 +1544,10 @@ function IntradayChart({ entries }) {
     y: height - padding - ((e.mood - 1) / 4) * (height - 2 * padding),
   }));
 
-  const energyPts = entries.filter(e => e.energy && e.time).map(e => ({
+  // Energy is now 0-100 scale
+  const energyPts = entries.filter(e => e.energy != null && e.time).map(e => ({
     x: timeToX(e.time),
-    y: height - padding - ((e.energy - 1) / 9) * (height - 2 * padding),
+    y: height - padding - (e.energy / 100) * (height - 2 * padding),
   }));
 
   const makePath = (pts) => pts.length > 1
@@ -1544,7 +1561,7 @@ function IntradayChart({ entries }) {
           <Path d={makePath(moodPts)} fill="none" stroke={COLORS.green} strokeWidth={2} />
         )}
         {moodPts.map((p, i) => (
-          <Circle key={`m${i}`} cx={p.x} cy={p.y} r={4} fill="white" stroke={COLORS.green} strokeWidth={2} />
+          <Circle key={`m${i}`} cx={p.x} cy={p.y} r={4} fill={COLORS.green} stroke={COLORS.green} strokeWidth={2} />
         ))}
         {energyPts.length > 1 && (
           <Path d={makePath(energyPts)} fill="none" stroke={COLORS.orange} strokeWidth={2} strokeDasharray="4 2" />

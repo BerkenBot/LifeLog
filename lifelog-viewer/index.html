@@ -223,6 +223,15 @@
       background: rgba(0, 0, 0, 0.3);
     }
 
+    .entry.full {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .entry.full:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
     .entry-header {
       display: flex;
       align-items: center;
@@ -518,12 +527,19 @@
       }
     }
 
+    function toLocalDateStr(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
     function getFilteredEntries() {
       if (currentDays === 0) return allEntries; // All time
 
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - currentDays);
-      const cutoffStr = cutoff.toISOString().split('T')[0];
+      const cutoffStr = toLocalDateStr(cutoff);
 
       return allEntries.filter(e => e.date >= cutoffStr);
     }
@@ -749,7 +765,7 @@
       }
 
       document.getElementById('entriesList').innerHTML = recent.map((e, i) => `
-        <div class="entry" onclick="this.classList.toggle('expanded')" id="entry-${i}">
+        <div class="entry ${e.type !== 'quick' ? 'full' : ''}" onclick="this.classList.toggle('expanded')" id="entry-${i}">
           <div class="entry-header">
             <div class="entry-mood">${MOODS[(e.mood || 3) - 1]?.emoji || '😐'}</div>
             <div class="entry-info">
@@ -822,13 +838,20 @@
     }
 
     function formatDate(dateStr) {
-      const d = new Date(dateStr);
-      const today = new Date().toISOString().split('T')[0];
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+      // Parse YYYY-MM-DD as local date to avoid UTC shifts
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
+
+      const today = toLocalDateStr(new Date());
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = toLocalDateStr(yesterdayDate);
 
       if (dateStr === today) return 'Today';
       if (dateStr === yesterday) return 'Yesterday';
-      return d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+
+      // Use standard formatting but ensure it uses the local date components we parsed
+      return date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
     }
 
     function formatTime(time) {
