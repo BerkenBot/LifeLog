@@ -1,0 +1,37 @@
+{
+  "expo": {
+    "name": "LifeLog",
+    "scheme": "lifelog",
+    "slug": "life-log",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F2F2F7"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.studioreactive.lifelog",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSHealthShareUsageDescription": "LifeLog reads your health data to automatically log steps, sleep, heart rate, and active calories alongside your mood entries.",
+        "NSHealthUpdateUsageDescription": "LifeLog does not write health data."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true
+      }
+    },
+    "plugins": [
+      "expo-dev-client",
+      "@react-native-community/datetimepicker",
+      "expo-secure-store"
+    ],
+    "newArchEnabled": true
+  }
+}

@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LifeLog Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      min-height: 100vh;
+      color: #e4e4e4;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      color: #888;
+      margin-bottom: 30px;
+    }
+
+    .setup-box {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 30px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .setup-box input {
+      width: 100%;
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(0, 0, 0, 0.3);
+      color: white;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    .setup-box button {
+      padding: 12px 30px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      color: #1a1a2e;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .setup-box button:hover {
+      transform: scale(1.05);
+    }
+
+    /* Period Selector */
+    .period-selector {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+
+    .period-btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: transparent;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 14px;
+    }
+
+    .period-btn:hover {
+      border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .period-btn.active {
+      background: linear-gradient(90deg, #00d9ff, #00ff88);
+      color: #1a1a2e;
+      border-color: transparent;
+      font-weight: 600;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin-bottom: 30px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 20px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: transform 0.2s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+    }
+
+    .stat-emoji {
+      font-size: 1.8rem;
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-size: 1.8rem;
+      font-weight: 700;
+    }
+
+    .stat-label {
+      color: #888;
+      font-size: 0.85rem;
+      margin-top: 4px;
+    }
+
+    /* Metric-specific colors */
+    .mood {
+      color: #00ff88;
+    }
+
+    .energy {
+      color: #FF9F0A;
+    }
+
+    .stress {
+      color: #FF3B30;
+    }
+
+    .clarity {
+      color: #64D2FF;
+    }
+
+    .motivation {
+      color: #5E5CE6;
+    }
+
+    .fulfillment {
+      color: #0A84FF;
+    }
+
+
+
+    .sleep {
+      color: #5AC8FA;
+    }
+
+    .exercise {
+      color: #FF2D55;
+    }
+
+    .steps {
+      color: #30D158;
+    }
+
+    .heartrate {
+      color: #FF453A;
+    }
+
+    .calories {
+      color: #FF9F0A;
+    }
+
+    .chart-container {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .chart-title {
+      font-size: 1.2rem;
+      margin-bottom: 20px;
+    }
+
+    .chart {
+      width: 100%;
+      height: 250px;
+      position: relative;
+    }
+
+    .entries-list {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 16px;
+      padding: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .entry {
+      padding: 16px;
+      border-radius: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+
+    .entry:hover {
+      background: rgba(0, 0, 0, 0.3);
+    }
+
+    .entry-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      cursor: pointer;
+    }
+
+    .entry-mood {
+      font-size: 2rem;
+    }
+
+    .entry-info {
+      flex: 1;
+    }
+
+    .entry-date {
+      font-weight: 600;
+    }
+
+    .entry-time {
+      color: #888;
+      font-size: 0.9rem;
+    }
+
+    .entry-metrics {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .metric-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      background: rgba(255, 255, 255, 0.1);
+      white-space: nowrap;
+    }
+
+    .entry-details {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: none;
+    }
+
+    .entry.expanded .entry-details {
+      display: block;
+    }
+
+    .entry.expanded .expand-icon {
+      transform: rotate(180deg);
+    }
+
+    .expand-icon {
+      transition: transform 0.2s;
+      color: #888;
+    }
+
+    .reflection-card {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 12px 16px;
+      margin-bottom: 10px;
+    }
+
+    .reflection-label {
+      font-size: 0.85rem;
+      color: #888;
+      margin-bottom: 4px;
+    }
+
+    .reflection-text {
+      font-size: 0.95rem;
+      line-height: 1.4;
+    }
+
+    .health-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .health-item {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .health-value {
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    .health-label {
+      font-size: 0.75rem;
+      color: #888;
+    }
+
+    .metric-notes {
+      margin-top: 12px;
+      padding: 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+    }
+
+    .metric-note {
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+      color: #aaa;
+    }
+
+    .metric-note strong {
+      color: #ccc;
+    }
+
+    .last-updated {
+      color: #666;
+      font-size: 0.8rem;
+      margin-top: 20px;
+      text-align: center;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 50px;
+      color: #888;
+    }
+
+    .error {
+      text-align: center;
+      padding: 50px;
+      color: #ff6b6b;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #888;
+    }
+
+    .empty-emoji {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+
+    .empty-title {
+      font-size: 1.2rem;
+      margin-bottom: 8px;
+      color: #aaa;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: 250px !important;
+    }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 12px;
+      }
+
+      h1 {
+        font-size: 1.8rem;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+      }
+
+      .stat-card {
+        padding: 14px;
+      }
+
+      .stat-emoji {
+        font-size: 1.4rem;
+      }
+
+      .stat-value {
+        font-size: 1.4rem;
+      }
+
+      .entry-mood {
+        font-size: 1.6rem;
+      }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <h1>📊 LifeLog Dashboard</h1>
+    <p class="subtitle">Real-time wellness tracking</p>
+
+    <div id="setup" class="setup-box">
+      <h3 style="margin-bottom: 15px;">🔗 Connect Your Data</h3>
+      <p style="color: #888; margin-bottom: 15px;">Paste your Gist Raw URL below:</p>
+      <input type="text" id="gistUrl"
+        placeholder="https://gist.githubusercontent.com/username/gistid/raw/lifelog-data.json">
+      <button onclick="loadData()">Load Dashboard</button>
+    </div>
+
+    <div id="dashboard" style="display: none;">
+      <div class="period-selector" id="periodSelector">
+        <button class="period-btn" data-days="1">Day</button>
+        <button class="period-btn active" data-days="7">Week</button>
+        <button class="period-btn" data-days="30">Month</button>
+        <button class="period-btn" data-days="365">Year</button>
+        <button class="period-btn" data-days="0">All Time</button>
+      </div>
+
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="chart-container">
+        <h3 class="chart-title">📈 Trends</h3>
+        <canvas id="trendChart"></canvas>
+      </div>
+
+      <div class="entries-list">
+        <h3 class="chart-title">📝 Recent Check-ins</h3>
+        <div id="entriesList"></div>
+      </div>
+
+      <p class="last-updated" id="lastUpdated"></p>
+    </div>
+  </div>
+
+  <script>
+    const MOODS = [
+      { emoji: '😫', label: 'Terrible', color: '#FF3B30' },
+      { emoji: '😔', label: 'Bad', color: '#FF9500' },
+      { emoji: '😐', label: 'Okay', color: '#FFCC00' },
+      { emoji: '🙂', label: 'Good', color: '#34C759' },
+      { emoji: '😄', label: 'Great', color: '#30D158' },
+    ];
+
+    const METRICS = [
+      { key: 'stress', label: 'Stress', icon: '😰', color: '#FF3B30' },
+      { key: 'energy', label: 'Energy', icon: '⚡', color: '#FF9F0A' },
+      { key: 'clarity', label: 'Clarity', icon: '🧠', color: '#64D2FF' },
+      { key: 'motivation', label: 'Motivation', icon: '🎯', color: '#5E5CE6' },
+      { key: 'fulfillment', label: 'Fulfillment', icon: '✨', color: '#0A84FF' },
+
+    ];
+
+    let allEntries = [];
+    let currentDays = 7;
+    let chart = null;
+
+    // Check for saved URL
+    const savedUrl = localStorage.getItem('lifelogGistUrl');
+    if (savedUrl) {
+      document.getElementById('gistUrl').value = savedUrl;
+      loadData();
+    }
+
+    // Period selector
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentDays = parseInt(btn.dataset.days);
+        updateDashboard();
+      });
+    });
+
+    async function loadData() {
+      const url = document.getElementById('gistUrl').value.trim();
+      if (!url) return alert('Please enter a Gist URL');
+
+      localStorage.setItem('lifelogGistUrl', url);
+
+      try {
+        const response = await fetch(url + '?t=' + Date.now()); // Cache bust
+        const data = await response.json();
+
+        allEntries = data.entries || [];
+
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('dashboard').style.display = 'block';
+
+        updateDashboard();
+        document.getElementById('lastUpdated').textContent =
+          'Last synced: ' + new Date(data.lastUpdated).toLocaleString();
+      } catch (error) {
+        alert('Failed to load data. Check the URL and try again.');
+        console.error(error);
+      }
+    }
+
+    function getFilteredEntries() {
+      if (currentDays === 0) return allEntries; // All time
+
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - currentDays);
+      const cutoffStr = cutoff.toISOString().split('T')[0];
+
+      return allEntries.filter(e => e.date >= cutoffStr);
+    }
+
+    function updateDashboard() {
+      const entries = getFilteredEntries();
+      renderStats(entries);
+      renderChart(entries);
+      renderEntries(entries);
+    }
+
+    function renderStats(entries) {
+      if (entries.length === 0) {
+        document.getElementById('statsGrid').innerHTML = `
+          <div class="empty-state" style="grid-column: 1/-1;">
+            <div class="empty-emoji">📭</div>
+            <div class="empty-title">No entries for this period</div>
+          </div>
+        `;
+        return;
+      }
+
+      const avg = (key) => {
+        const valid = entries.filter(e => e[key] != null);
+        return valid.length ? (valid.reduce((s, e) => s + e[key], 0) / valid.length) : null;
+      };
+
+      const avgHealth = (key) => {
+        const valid = entries.filter(e => e.health && e.health[key] != null);
+        return valid.length ? (valid.reduce((s, e) => s + parseFloat(e.health[key]), 0) / valid.length) : null;
+      };
+
+      const moodVal = avg('mood');
+      const moodEmoji = moodVal ? MOODS[Math.round(moodVal) - 1]?.emoji : '—';
+
+      document.getElementById('statsGrid').innerHTML = `
+        <div class="stat-card">
+          <div class="stat-emoji">${moodEmoji}</div>
+          <div class="stat-value mood">${moodVal ? moodVal.toFixed(1) : '—'}</div>
+          <div class="stat-label">Avg Mood</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">⚡</div>
+          <div class="stat-value energy">${avg('energy')?.toFixed(0) || '—'}%</div>
+          <div class="stat-label">Energy</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">🧠</div>
+          <div class="stat-value clarity">${avg('clarity')?.toFixed(0) || '—'}%</div>
+          <div class="stat-label">Clarity</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">😰</div>
+          <div class="stat-value stress">${avg('stress')?.toFixed(0) || '—'}%</div>
+          <div class="stat-label">Stress</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">🎯</div>
+          <div class="stat-value motivation">${avg('motivation')?.toFixed(0) || '—'}%</div>
+          <div class="stat-label">Motivation</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">✨</div>
+          <div class="stat-value fulfillment">${avg('fulfillment')?.toFixed(0) || '—'}%</div>
+          <div class="stat-label">Fulfillment</div>
+        </div>
+
+        <div class="stat-card">
+          <div class="stat-emoji">😴</div>
+          <div class="stat-value sleep">${avgHealth('sleep')?.toFixed(1) || '—'}h</div>
+          <div class="stat-label">Sleep</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">🏃</div>
+          <div class="stat-value exercise">${avgHealth('exerciseMinutes')?.toFixed(0) || '—'}m</div>
+          <div class="stat-label">Exercise</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">👣</div>
+          <div class="stat-value steps">${avgHealth('steps')?.toLocaleString() || '—'}</div>
+          <div class="stat-label">Steps</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">❤️</div>
+          <div class="stat-value heartrate">${avgHealth('heartRate')?.toFixed(0) || '—'}</div>
+          <div class="stat-label">Heart Rate</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-emoji">🔥</div>
+          <div class="stat-value calories">${avgHealth('calories')?.toLocaleString() || '—'}</div>
+          <div class="stat-label">Calories</div>
+        </div>
+      `;
+    }
+
+    function renderChart(entries) {
+      // Destroy previous chart
+      if (chart) {
+        chart.destroy();
+      }
+
+      if (entries.length === 0) return;
+
+      // Group by date and get averages
+      const dateGroups = {};
+      entries.forEach(e => {
+        if (!dateGroups[e.date]) dateGroups[e.date] = [];
+        dateGroups[e.date].push(e);
+      });
+
+      const dates = Object.keys(dateGroups).sort();
+      const displayDates = dates.slice(-14); // Show up to last 14 data points
+
+      const dayData = displayDates.map(dateStr => {
+        const dayEntries = dateGroups[dateStr];
+        const avg = (key) => {
+          const valid = dayEntries.filter(e => e[key] != null);
+          return valid.length ? valid.reduce((s, e) => s + e[key], 0) / valid.length : null;
+        };
+        return {
+          date: dateStr,
+          mood: avg('mood') ? (avg('mood') / 5) * 100 : null, // Normalize to 0-100
+          energy: avg('energy'),
+          stress: avg('stress'),
+          clarity: avg('clarity'),
+          motivation: avg('motivation'),
+          fulfillment: avg('fulfillment'),
+
+        };
+      });
+
+      const ctx = document.getElementById('trendChart').getContext('2d');
+      chart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: displayDates.map(d => new Date(d).toLocaleDateString('en', { month: 'short', day: 'numeric' })),
+          datasets: [
+            {
+              label: 'Mood',
+              data: dayData.map(d => d.mood),
+              borderColor: '#00ff88',
+              backgroundColor: 'rgba(0, 255, 136, 0.1)',
+              tension: 0.4,
+              fill: true,
+            },
+            {
+              label: 'Energy',
+              data: dayData.map(d => d.energy),
+              borderColor: '#FF9F0A',
+              tension: 0.4,
+            },
+            {
+              label: 'Clarity',
+              data: dayData.map(d => d.clarity),
+              borderColor: '#64D2FF',
+              tension: 0.4,
+            },
+            {
+              label: 'Stress',
+              data: dayData.map(d => d.stress),
+              borderColor: '#FF3B30',
+              tension: 0.4,
+            },
+            {
+              label: 'Motivation',
+              data: dayData.map(d => d.motivation),
+              borderColor: '#5E5CE6',
+              tension: 0.4,
+              hidden: true,
+            },
+            {
+              label: 'Fulfillment',
+              data: dayData.map(d => d.fulfillment),
+              borderColor: '#0A84FF',
+              tension: 0.4,
+              hidden: true,
+            },
+
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              labels: { color: '#888' },
+              onClick: function (e, legendItem, legend) {
+                const index = legendItem.datasetIndex;
+                const ci = legend.chart;
+                const meta = ci.getDatasetMeta(index);
+                meta.hidden = !meta.hidden;
+                ci.update();
+              }
+            },
+          },
+          scales: {
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: 'rgba(255,255,255,0.1)' },
+              ticks: { color: '#888' },
+            },
+            x: {
+              grid: { color: 'rgba(255,255,255,0.1)' },
+              ticks: { color: '#888' },
+            },
+          },
+        },
+      });
+    }
+
+    function renderEntries(entries) {
+      const recent = entries.slice(0, 30);
+
+      if (recent.length === 0) {
+        document.getElementById('entriesList').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-emoji">📭</div>
+            <div class="empty-title">No check-ins yet</div>
+          </div>
+        `;
+        return;
+      }
+
+      document.getElementById('entriesList').innerHTML = recent.map((e, i) => `
+        <div class="entry" onclick="this.classList.toggle('expanded')" id="entry-${i}">
+          <div class="entry-header">
+            <div class="entry-mood">${MOODS[(e.mood || 3) - 1]?.emoji || '😐'}</div>
+            <div class="entry-info">
+              <div class="entry-date">${formatDate(e.date)}</div>
+              <div class="entry-time">${formatTime(e.time)} ${e.type === 'quick' ? '· Quick Check-in' : '· Full Log'}</div>
+              <div class="entry-metrics">
+                ${METRICS.map(m =>
+        e[m.key] != null
+          ? `<span class="metric-badge" style="color:${m.color}">${m.icon} ${e[m.key]}%</span>`
+          : ''
+      ).join('')}
+                ${e.health?.sleep ? `<span class="metric-badge" style="color:#5AC8FA">😴 ${e.health.sleep}h</span>` : ''}
+                ${e.health?.exerciseMinutes ? `<span class="metric-badge" style="color:#FF2D55">🏃 ${e.health.exerciseMinutes}m</span>` : ''}
+              </div>
+            </div>
+            <span class="expand-icon">▼</span>
+          </div>
+          
+          <div class="entry-details">
+            ${e.note ? `<div class="reflection-card"><div class="reflection-label">📝 Note</div><div class="reflection-text">${escapeHtml(e.note)}</div></div>` : ''}
+            
+            ${e.reflections?.wentWell ? `<div class="reflection-card"><div class="reflection-label">✅ What went well</div><div class="reflection-text">${escapeHtml(e.reflections.wentWell)}</div></div>` : ''}
+            
+            ${e.reflections?.didNotGoWell ? `<div class="reflection-card"><div class="reflection-label">⚠️ What didn't go well</div><div class="reflection-text">${escapeHtml(e.reflections.didNotGoWell)}</div></div>` : ''}
+            
+            ${e.reflections?.gratefulFor ? `<div class="reflection-card"><div class="reflection-label">🙏 Grateful for</div><div class="reflection-text">${escapeHtml(e.reflections.gratefulFor)}</div></div>` : ''}
+            
+            ${renderMetricNotes(e.metricNotes)}
+            
+            ${e.health && (e.health.steps || e.health.heartRate || e.health.calories) ? `
+              <div class="health-grid">
+                ${e.health.steps ? `<div class="health-item"><div class="health-value steps">👣 ${e.health.steps.toLocaleString()}</div><div class="health-label">Steps</div></div>` : ''}
+                ${e.health.heartRate ? `<div class="health-item"><div class="health-value heartrate">❤️ ${e.health.heartRate}</div><div class="health-label">Heart Rate</div></div>` : ''}
+                ${e.health.calories ? `<div class="health-item"><div class="health-value calories">🔥 ${e.health.calories.toLocaleString()}</div><div class="health-label">Calories</div></div>` : ''}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMetricNotes(metricNotes) {
+      if (!metricNotes) return '';
+      const notes = Object.entries(metricNotes).filter(([_, v]) => v && v.trim());
+      if (notes.length === 0) return '';
+
+      // Additional note types for health data
+      const HEALTH_NOTES = {
+        exercise: { icon: '🏃', label: 'Exercise' },
+        sleep: { icon: '😴', label: 'Sleep' }
+      };
+
+      return `
+        <div class="metric-notes">
+          ${notes.map(([key, value]) => {
+        const metric = METRICS.find(m => m.key === key);
+        const healthNote = HEALTH_NOTES[key];
+        const icon = metric?.icon || healthNote?.icon || '📌';
+        const label = metric?.label || healthNote?.label || key;
+        return `<div class="metric-note"><strong>${icon} ${label}:</strong> ${escapeHtml(value)}</div>`;
+      }).join('')}
+        </div>
+      `;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatDate(dateStr) {
+      const d = new Date(dateStr);
+      const today = new Date().toISOString().split('T')[0];
+      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+      if (dateStr === today) return 'Today';
+      if (dateStr === yesterday) return 'Yesterday';
+      return d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
+
+    function formatTime(time) {
+      if (!time) return '';
+      const [h, m] = time.split(':');
+      const hour = parseInt(h);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${m} ${ampm}`;
+    }
+
+    // Auto-refresh every 5 minutes
+    setInterval(() => {
+      if (document.getElementById('dashboard').style.display !== 'none') {
+        loadData();
+      }
+    }, 5 * 60 * 1000);
+  </script>
+</body>
+
+</html>
