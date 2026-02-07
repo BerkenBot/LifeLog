@@ -916,11 +916,7 @@
         return adjustedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       }
 
-      document.getElementById('entriesList').innerHTML = recent.map(e => {
-        // ... rest of render logic
-
-
-        document.getElementById('entriesList').innerHTML = recent.map((e, i) => `
+      document.getElementById('entriesList').innerHTML = recent.map((e, i) => `
         <div class="entry ${e.type !== 'quick' ? 'full' : ''}" onclick="this.classList.toggle('expanded')" id="entry-${i}">
           <div class="entry-header">
             <div class="entry-mood">${MOODS[(e.mood || 3) - 1]?.emoji || '😐'}</div>
@@ -929,10 +925,10 @@
               <div class="entry-time">${formatTime(e.time)} ${e.type === 'quick' ? '· Quick Check-in' : '· Full Log'}</div>
               <div class="entry-metrics">
                 ${METRICS.map(m =>
-          e[m.key] != null
-            ? `<span class="metric-badge" style="color:${m.color}">${m.icon} ${e[m.key]}%</span>`
-            : ''
-        ).join('')}
+        e[m.key] != null
+          ? `<span class="metric-badge" style="color:${m.color}">${m.icon} ${e[m.key]}%</span>`
+          : ''
+      ).join('')}
                 ${e.health?.sleep ? `<span class="metric-badge" style="color:#5AC8FA">😴 ${e.health.sleep}h</span>` : ''}
                 ${e.health?.exerciseMinutes ? `<span class="metric-badge" style="color:#FF2D55">🏃 ${e.health.exerciseMinutes}m</span>` : ''}
               </div>
@@ -961,70 +957,70 @@
           </div>
         </div>
       `).join('');
-      }
+    }
 
     function renderMetricNotes(metricNotes) {
-          if (!metricNotes) return '';
-          const notes = Object.entries(metricNotes).filter(([_, v]) => v && v.trim());
-          if (notes.length === 0) return '';
+      if (!metricNotes) return '';
+      const notes = Object.entries(metricNotes).filter(([_, v]) => v && v.trim());
+      if (notes.length === 0) return '';
 
-          // Additional note types for health data
-          const HEALTH_NOTES = {
-            exercise: { icon: '🏃', label: 'Exercise' },
-            sleep: { icon: '😴', label: 'Sleep' }
-          };
+      // Additional note types for health data
+      const HEALTH_NOTES = {
+        exercise: { icon: '🏃', label: 'Exercise' },
+        sleep: { icon: '😴', label: 'Sleep' }
+      };
 
-          return `
+      return `
         <div class="metric-notes">
           ${notes.map(([key, value]) => {
-            const metric = METRICS.find(m => m.key === key);
-            const healthNote = HEALTH_NOTES[key];
-            const icon = metric?.icon || healthNote?.icon || '📌';
-            const label = metric?.label || healthNote?.label || key;
-            return `<div class="metric-note"><strong>${icon} ${label}:</strong> ${escapeHtml(value)}</div>`;
-          }).join('')}
+        const metric = METRICS.find(m => m.key === key);
+        const healthNote = HEALTH_NOTES[key];
+        const icon = metric?.icon || healthNote?.icon || '📌';
+        const label = metric?.label || healthNote?.label || key;
+        return `<div class="metric-note"><strong>${icon} ${label}:</strong> ${escapeHtml(value)}</div>`;
+      }).join('')}
         </div>
       `;
-        }
+    }
 
     function escapeHtml(text) {
-          const div = document.createElement('div');
-          div.textContent = text;
-          return div.innerHTML;
-        }
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
 
     function formatDate(dateStr) {
-          // Parse YYYY-MM-DD as local date to avoid UTC shifts
-          const [y, m, d] = dateStr.split('-').map(Number);
-          const date = new Date(y, m - 1, d);
+      // Parse YYYY-MM-DD as local date to avoid UTC shifts
+      const [y, m, d] = dateStr.split('-').map(Number);
+      const date = new Date(y, m - 1, d);
 
-          const today = toLocalDateStr(new Date());
-          const yesterdayDate = new Date();
-          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-          const yesterday = toLocalDateStr(yesterdayDate);
+      const today = toLocalDateStr(new Date());
+      const yesterdayDate = new Date();
+      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+      const yesterday = toLocalDateStr(yesterdayDate);
 
-          if (dateStr === today) return 'Today';
-          if (dateStr === yesterday) return 'Yesterday';
+      if (dateStr === today) return 'Today';
+      if (dateStr === yesterday) return 'Yesterday';
 
-          // Use standard formatting but ensure it uses the local date components we parsed
-          return date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
-        }
+      // Use standard formatting but ensure it uses the local date components we parsed
+      return date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+    }
 
     function formatTime(time) {
-          if (!time) return '';
-          const [h, m] = time.split(':');
-          const hour = parseInt(h);
-          const ampm = hour >= 12 ? 'PM' : 'AM';
-          const hour12 = hour % 12 || 12;
-          return `${hour12}:${m} ${ampm}`;
-        }
+      if (!time) return '';
+      const [h, m] = time.split(':');
+      const hour = parseInt(h);
+      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const hour12 = hour % 12 || 12;
+      return `${hour12}:${m} ${ampm}`;
+    }
 
     // Auto-refresh every 5 minutes
     setInterval(() => {
-          if (document.getElementById('dashboard').style.display !== 'none') {
-            loadData();
-          }
-        }, 5 * 60 * 1000);
+      if (document.getElementById('dashboard').style.display !== 'none') {
+        loadData();
+      }
+    }, 5 * 60 * 1000);
 
   </script>
 </body>
