@@ -458,9 +458,6 @@
   </div>
 
   <script>
-    // Register the plugin
-    Chart.register(ChartDataLabels);
-
     const MOODS = [
       { emoji: '😫', label: 'Terrible', color: '#FF3B30' },
       { emoji: '😔', label: 'Bad', color: '#FF9500' },
@@ -819,6 +816,17 @@
         });
       }
 
+      let sleepLabel = 'Sleep';
+      let exerciseLabel = 'Exercise';
+
+      if (isDayView) {
+        const totalSleep = entries.reduce((acc, e) => acc + (parseFloat(e.health?.sleep) || 0), 0);
+        const totalExercise = entries.reduce((acc, e) => acc + (parseInt(e.health?.exerciseMinutes) || 0), 0);
+
+        if (totalSleep > 0) sleepLabel = `Sleep ${parseFloat(totalSleep.toFixed(1))}h`;
+        if (totalExercise > 0) exerciseLabel = `Exercise ${totalExercise}m`;
+      }
+
       const ctx = document.getElementById('trendChart').getContext('2d');
       chart = new Chart(ctx, {
         type: 'line',
@@ -845,44 +853,22 @@
               pointRadius: 5,
             },
             {
-              label: 'Sleep',
+              label: sleepLabel,
               data: dataPoints.map(d => d.sleep),
               borderColor: '#5AC8FA',
               tension: 0.4,
               borderDash: [5, 5],
               spanGaps: true,
               pointRadius: 5,
-              datalabels: {
-                display: true,
-                align: 'top',
-                anchor: 'end',
-                color: '#5AC8FA',
-                font: { weight: 'bold' },
-                formatter: function (value, context) {
-                  const raw = dataPoints[context.dataIndex].rawSleep;
-                  return raw ? raw + 'h' : '';
-                }
-              }
             },
             {
-              label: 'Exercise',
+              label: exerciseLabel,
               data: dataPoints.map(d => d.exercise),
               borderColor: '#FF2D55',
               tension: 0.4,
               borderDash: [5, 5],
               spanGaps: true,
               pointRadius: 5,
-              datalabels: {
-                display: true,
-                align: 'bottom',
-                anchor: 'start',
-                color: '#FF2D55',
-                font: { weight: 'bold' },
-                formatter: function (value, context) {
-                  const raw = dataPoints[context.dataIndex].rawExercise;
-                  return raw ? raw + 'm' : '';
-                }
-              }
             },
             {
               label: 'Clarity',
@@ -922,9 +908,6 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
-            datalabels: {
-              display: false // Default hide all
-            },
             legend: {
               labels: { color: '#888' },
               onClick: function (e, legendItem, legend) {
