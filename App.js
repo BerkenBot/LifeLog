@@ -252,6 +252,7 @@ function AppContent() {
         sleep: entry.health?.sleep?.toString() ?? '',
         heartRate: entry.health?.heartRate?.toString() ?? '',
         calories: entry.health?.calories?.toString() ?? '',
+        exerciseMinutes: entry.health?.exerciseMinutes?.toString() ?? '',
       });
       setReflections({
         wentWell: entry.reflections?.wentWell || '',
@@ -302,6 +303,7 @@ function AppContent() {
         sleep: health.sleep ? parseFloat(health.sleep) : null,
         heartRate: health.heartRate ? parseInt(health.heartRate) : null,
         calories: health.calories ? parseInt(health.calories) : null,
+        exerciseMinutes: health.exerciseMinutes ? parseInt(health.exerciseMinutes) : null,
       } : null,
       reflections: checkinMode === 'full' ? {
         wentWell: reflections.wentWell || null,
