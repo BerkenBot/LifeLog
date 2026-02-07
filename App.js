@@ -274,7 +274,9 @@ function AppContent() {
           steps: healthData.steps?.toString() ?? '',
           sleep: healthData.sleep?.toString() ?? '',
           heartRate: healthData.heartRate?.toString() ?? '',
+          heartRate: healthData.heartRate?.toString() ?? '',
           calories: healthData.calories?.toString() ?? '',
+          exerciseMinutes: '', // Initialize exercise minutes as empty since HealthKit doesn't provide it yet
         });
       }
     }
