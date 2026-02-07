@@ -386,6 +386,49 @@
       color: #aaa;
     }
 
+    .chart-container {
+      position: relative;
+      height: 350px;
+      margin-bottom: 30px;
+    }
+
+    .chart-legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 15px;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+      color: #888;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      opacity: 1;
+      transition: opacity 0.2s;
+    }
+
+    .legend-item.hidden {
+      opacity: 0.4;
+      text-decoration: line-through;
+    }
+
+    .legend-color {
+      width: 30px;
+      height: 10px;
+      border-radius: 2px;
+    }
+
+    /* Hollow box style for some items if needed, but solid is easier for now. Matching ChartJS default is filled box + border. */
+    .legend-color.dashed {
+      background: transparent !important;
+      border-style: dashed;
+      border-width: 2px;
+    }
+
     canvas {
       width: 100% !important;
       height: 250px !important;
@@ -445,6 +488,7 @@
       <div class="chart-container">
         <h3 class="chart-title">📈 Trends <span id="chartDate"
             style="font-size: 0.8em; color: #888; font-weight: normal; margin-left: 10px;"></span></h3>
+        <div id="customLegend" class="chart-legend"></div>
         <canvas id="trendChart"></canvas>
       </div>
 
@@ -816,15 +860,15 @@
         });
       }
 
-      let sleepLabel = 'Sleep';
-      let exerciseLabel = 'Exercise';
+      let sleepValue = '';
+      let exerciseValue = '';
 
       if (isDayView) {
         const totalSleep = entries.reduce((acc, e) => acc + (parseFloat(e.health?.sleep) || 0), 0);
         const totalExercise = entries.reduce((acc, e) => acc + (parseInt(e.health?.exerciseMinutes) || 0), 0);
 
-        if (totalSleep > 0) sleepLabel = `Sleep ${parseFloat(totalSleep.toFixed(1))}h`;
-        if (totalExercise > 0) exerciseLabel = `Exercise ${totalExercise}m`;
+        if (totalSleep > 0) sleepValue = `${parseFloat(totalSleep.toFixed(1))}h`;
+        if (totalExercise > 0) exerciseValue = `${totalExercise}m`;
       }
 
       const ctx = document.getElementById('trendChart').getContext('2d');
@@ -853,7 +897,8 @@
               pointRadius: 5,
             },
             {
-              label: sleepLabel,
+              label: 'Sleep',
+              legendValue: sleepValue,
               data: dataPoints.map(d => d.sleep),
               borderColor: '#5AC8FA',
               tension: 0.4,
@@ -862,7 +907,8 @@
               pointRadius: 5,
             },
             {
-              label: exerciseLabel,
+              label: 'Exercise',
+              legendValue: exerciseValue,
               data: dataPoints.map(d => d.exercise),
               borderColor: '#FF2D55',
               tension: 0.4,
@@ -909,14 +955,7 @@
           maintainAspectRatio: false,
           plugins: {
             legend: {
-              labels: { color: '#888' },
-              onClick: function (e, legendItem, legend) {
-                const index = legendItem.datasetIndex;
-                const ci = legend.chart;
-                const meta = ci.getDatasetMeta(index);
-                meta.hidden = !meta.hidden;
-                ci.update();
-              }
+              display: false // We use custom legend
             },
             tooltip: {
               callbacks: {
@@ -946,6 +985,48 @@
             },
           },
         },
+      });
+
+      generateLegend(chart);
+    }
+
+    function generateLegend(chart) {
+      const container = document.getElementById('customLegend');
+      container.innerHTML = '';
+
+      chart.data.datasets.forEach((dataset, index) => {
+        const item = document.createElement('div');
+        item.className = 'legend-item';
+
+        // Color box
+        const colorBox = document.createElement('span');
+        colorBox.className = 'legend-color';
+        // Handle dashed lines visually if needed, but solid color is fine for legend
+        colorBox.style.backgroundColor = dataset.borderColor;
+        if (dataset.borderDash) {
+          colorBox.classList.add('dashed');
+          colorBox.style.borderColor = dataset.borderColor;
+        }
+
+        // Label
+        const text = document.createElement('span');
+        text.innerHTML = dataset.label + (dataset.legendValue ? ` <b>${dataset.legendValue}</b>` : '');
+
+        item.appendChild(colorBox);
+        item.appendChild(text);
+
+        if (chart.getDatasetMeta(index).hidden) {
+          item.classList.add('hidden');
+        }
+
+        item.onclick = () => {
+          const meta = chart.getDatasetMeta(index);
+          meta.hidden = !meta.hidden;
+          chart.update();
+          item.classList.toggle('hidden');
+        };
+
+        container.appendChild(item);
       });
     }
 
