@@ -430,14 +430,6 @@
     <h1>📊 LifeLog Dashboard</h1>
     <p class="subtitle">Real-time wellness tracking</p>
 
-    <div id="setup" class="setup-box">
-      <h3 style="margin-bottom: 15px;">🔗 Connect Your Data</h3>
-      <p style="color: #888; margin-bottom: 15px;">Paste your Gist Raw URL below:</p>
-      <input type="text" id="gistUrl"
-        placeholder="https://gist.githubusercontent.com/username/gistid/raw/lifelog-data.json">
-      <button onclick="loadData()">Load Dashboard</button>
-    </div>
-
     <div id="dashboard" style="display: none;">
       <div class="period-selector" id="periodSelector">
         <button class="period-btn" data-days="1">Day</button>
@@ -493,8 +485,6 @@
     const DEFAULT_GIST_URL = 'https://gist.githubusercontent.com/justinberken/32e644906d9079c1601b4a04dcf7aa8e/raw/lifelog-data.json';
 
     // Auto-load data on page load
-    document.getElementById('gistUrl').value = DEFAULT_GIST_URL;
-    document.getElementById('setup').style.display = 'none';
     loadData();
 
     // Period selector
@@ -589,10 +579,7 @@
     }
 
     async function loadData() {
-      const url = document.getElementById('gistUrl').value.trim();
-      if (!url) return alert('Please enter a Gist URL');
-
-      localStorage.setItem('lifelogGistUrl', url);
+      const url = DEFAULT_GIST_URL;
 
       try {
         const response = await fetch(url + '?t=' + Date.now()); // Cache bust
@@ -600,7 +587,6 @@
 
         allEntries = data.entries || [];
 
-        document.getElementById('setup').style.display = 'none';
         document.getElementById('dashboard').style.display = 'block';
 
         updateDashboard();
