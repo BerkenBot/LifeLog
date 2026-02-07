@@ -607,7 +607,7 @@ function AppContent() {
 
                     <TouchableOpacity
                       style={{ backgroundColor: COLORS.card, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.blue }}
-                      onPress={() => Linking.openURL('https://justinberken.github.io/LifeLog/')}
+                      onPress={() => Linking.openURL('https://justinberken.github.io/LifeLog/lifelog-viewer/index.html')}
                     >
                       <Text style={{ color: COLORS.blue, fontWeight: '700', fontSize: 16 }}>📊 View Dashboard</Text>
                     </TouchableOpacity>
