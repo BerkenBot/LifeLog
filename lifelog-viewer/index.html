@@ -654,7 +654,7 @@
       });
 
       const dates = Object.keys(dateGroups).sort();
-      const displayDates = dates.slice(-14); // Show up to last 14 data points
+      const displayDates = dates; // Show all data points in range
 
       const dayData = displayDates.map(dateStr => {
         const dayEntries = dateGroups[dateStr];
