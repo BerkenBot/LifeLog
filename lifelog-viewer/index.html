@@ -484,6 +484,10 @@
     let allEntries = [];
     let currentDays = 7;
     let chart = null;
+    let selectedDate = new Date();
+    let isDayView = false;
+    let touchStartX = 0;
+    let touchEndX = 0;
 
     // Default Gist URL - auto-loads on page open
     const DEFAULT_GIST_URL = 'https://gist.githubusercontent.com/justinberken/32e644906d9079c1601b4a04dcf7aa8e/raw/lifelog-data.json';
@@ -496,12 +500,93 @@
     // Period selector
     document.querySelectorAll('.period-btn').forEach(btn => {
       btn.addEventListener('click', () => {
-        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        currentDays = parseInt(btn.dataset.days);
+        const days = parseInt(btn.dataset.days);
+        if (days === 1) {
+          isDayView = true;
+          selectedDate = new Date();
+        } else {
+          isDayView = false;
+          currentDays = days;
+        }
+        updatePeriodButtons();
         updateDashboard();
       });
     });
+
+    function updatePeriodButtons() {
+      document.querySelectorAll('.period-btn').forEach(btn => {
+        btn.classList.remove('active');
+        const days = parseInt(btn.dataset.days);
+        if (isDayView && days === 1) {
+          btn.classList.add('active');
+          btn.textContent = selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+        } else if (!isDayView && days === currentDays) {
+          btn.classList.add('active');
+          // Reset Day button text
+          if (days !== 1) {
+            document.querySelector('.period-btn[data-days="1"]').textContent = 'Day';
+          }
+        } else if (days === 1) {
+          btn.textContent = 'Day';
+        }
+      });
+    }
+
+    // Swipe Handling
+    const chartContainer = document.querySelector('.chart-container');
+    chartContainer.addEventListener('touchstart', e => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    chartContainer.addEventListener('touchend', e => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      if (!isDayView) return;
+
+      const threshold = 50;
+      const diff = touchEndX - touchStartX;
+
+      if (Math.abs(diff) > threshold) {
+        const direction = diff > 0 ? -1 : 1; // Right swipe = prev day (-1), Left swipe = next day (1)
+
+        // Build new date
+        const newDate = new Date(selectedDate);
+        newDate.setDate(selectedDate.getDate() + direction);
+
+        // Prevent going into future
+        if (newDate > new Date()) return;
+
+        // Animate
+        const chartCanvas = document.getElementById('trendChart');
+        const oldTransform = chartCanvas.style.transform;
+
+        // Slide out
+        chartCanvas.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+        chartCanvas.style.transform = `translateX(${direction * -20}px)`;
+        chartCanvas.style.opacity = '0';
+
+        setTimeout(() => {
+          selectedDate = newDate;
+          updatePeriodButtons();
+
+          // Render new data (which updates chart)
+          updateDashboard();
+
+          // Slide in
+          chartCanvas.style.transition = 'none';
+          chartCanvas.style.transform = `translateX(${direction * 20}px)`;
+
+          requestAnimationFrame(() => {
+            chartCanvas.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+            chartCanvas.style.transform = 'translateX(0)';
+            chartCanvas.style.opacity = '1';
+          });
+        }, 200);
+      }
+    }
 
     async function loadData() {
       const url = document.getElementById('gistUrl').value.trim();
@@ -535,6 +620,11 @@
     }
 
     function getFilteredEntries() {
+      if (isDayView) {
+        const dateStr = toLocalDateStr(selectedDate);
+        return allEntries.filter(e => e.date === dateStr);
+      }
+
       if (currentDays === 0) return allEntries; // All time
 
       const cutoff = new Date();
@@ -636,62 +726,92 @@
     }
 
     function renderChart(entries) {
-      // Destroy previous chart
       if (chart) {
         chart.destroy();
       }
 
       if (entries.length === 0) return;
 
-      const SLEEP_GOAL = 8; // hours
-      const EXERCISE_GOAL = 60; // minutes
+      const SLEEP_GOAL = 8;
+      const EXERCISE_GOAL = 60;
 
-      // Group by date and get averages
-      const dateGroups = {};
-      entries.forEach(e => {
-        if (!dateGroups[e.date]) dateGroups[e.date] = [];
-        dateGroups[e.date].push(e);
-      });
+      let labels, dataPoints;
 
-      const dates = Object.keys(dateGroups).sort();
-      const displayDates = dates; // Show all data points in range
+      if (isDayView) {
+        // Sort entries by time
+        const sorted = [...entries].sort((a, b) => (a.time || '').localeCompare(b.time || ''));
 
-      const dayData = displayDates.map(dateStr => {
-        const dayEntries = dateGroups[dateStr];
-        const avg = (key) => {
-          const valid = dayEntries.filter(e => e[key] != null);
-          return valid.length ? valid.reduce((s, e) => s + e[key], 0) / valid.length : null;
-        };
-        const avgHealth = (key) => {
-          const valid = dayEntries.filter(e => e.health && e.health[key] != null && !isNaN(parseFloat(e.health[key])));
-          return valid.length ? valid.reduce((s, e) => s + parseFloat(e.health[key]), 0) / valid.length : null;
-        };
+        labels = sorted.map(e => {
+          // Format 14:30 to 2:30 PM
+          if (!e.time) return '—';
+          const [h, m] = e.time.split(':');
+          const date = new Date();
+          date.setHours(h, m);
+          return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+        });
 
-        const sleepVal = avgHealth('sleep');
-        const exerciseVal = avgHealth('exerciseMinutes');
+        dataPoints = sorted.map(e => {
+          const health = e.health || {};
+          return {
+            mood: e.mood ? (e.mood / 5) * 100 : null,
+            energy: e.energy,
+            stress: e.stress,
+            clarity: e.clarity,
+            motivation: e.motivation,
+            fulfillment: e.fulfillment,
+            // For day view, we just show the raw values if they exist, normalized to 0-100 for graph
+            sleep: health.sleep ? Math.min((parseFloat(health.sleep) / SLEEP_GOAL) * 100, 100) : null,
+            exercise: health.exerciseMinutes ? Math.min((parseInt(health.exerciseMinutes) / EXERCISE_GOAL) * 100, 100) : null,
+          }
+        });
 
-        return {
-          date: dateStr,
-          mood: avg('mood') ? (avg('mood') / 5) * 100 : null, // Normalize to 0-100
-          energy: avg('energy'),
-          stress: avg('stress'),
-          clarity: avg('clarity'),
-          motivation: avg('motivation'),
-          fulfillment: avg('fulfillment'),
-          sleep: sleepVal ? Math.min((sleepVal / SLEEP_GOAL) * 100, 100) : null,
-          exercise: exerciseVal ? Math.min((exerciseVal / EXERCISE_GOAL) * 100, 100) : null,
-        };
-      });
+      } else {
+        // EXISTING AGGREGATION LOGIC
+        const dateGroups = {};
+        entries.forEach(e => {
+          if (!dateGroups[e.date]) dateGroups[e.date] = [];
+          dateGroups[e.date].push(e);
+        });
+
+        const dates = Object.keys(dateGroups).sort();
+        labels = dates; // Use date strings YYYY-MM-DD, logic inside Chart callback renders them prettier? No, see below.
+
+        dataPoints = dates.map(dateStr => {
+          const dayEntries = dateGroups[dateStr];
+          const avg = (key) => {
+            const valid = dayEntries.filter(e => e[key] != null);
+            return valid.length ? valid.reduce((s, e) => s + e[key], 0) / valid.length : null;
+          };
+          const avgHealth = (key) => {
+            const valid = dayEntries.filter(e => e.health && e.health[key] != null && !isNaN(parseFloat(e.health[key])));
+            return valid.length ? valid.reduce((s, e) => s + parseFloat(e.health[key]), 0) / valid.length : null;
+          };
+
+          const sleepVal = avgHealth('sleep');
+          const exerciseVal = avgHealth('exerciseMinutes');
+
+          return {
+            mood: avg('mood') ? (avg('mood') / 5) * 100 : null,
+            energy: avg('energy'),
+            stress: avg('stress'),
+            clarity: avg('clarity'),
+            motivation: avg('motivation'),
+            fulfillment: avg('fulfillment'),
+            sleep: sleepVal ? Math.min((sleepVal / SLEEP_GOAL) * 100, 100) : null,
+            exercise: exerciseVal ? Math.min((exerciseVal / EXERCISE_GOAL) * 100, 100) : null,
+          };
+        });
+      }
 
       const ctx = document.getElementById('trendChart').getContext('2d');
       chart = new Chart(ctx, {
         type: 'line',
         data: {
-          labels: displayDates.map(d => formatDate(d)), // Use our local formatDate helper
+          labels: labels,
           datasets: [
             {
               label: 'Mood',
-              data: dayData.map(d => d.mood),
+              data: dataPoints.map(d => d.mood),
               borderColor: '#00ff88',
               backgroundColor: 'rgba(0, 255, 136, 0.1)',
               tension: 0.4,
@@ -700,45 +820,45 @@
             },
             {
               label: 'Energy',
-              data: dayData.map(d => d.energy),
+              data: dataPoints.map(d => d.energy),
               borderColor: '#FF9F0A',
               tension: 0.4,
             },
             {
               label: 'Sleep',
-              data: dayData.map(d => d.sleep),
+              data: dataPoints.map(d => d.sleep),
               borderColor: '#5AC8FA',
               tension: 0.4,
               borderDash: [5, 5],
             },
             {
               label: 'Exercise',
-              data: dayData.map(d => d.exercise),
+              data: dataPoints.map(d => d.exercise),
               borderColor: '#FF2D55',
               tension: 0.4,
               borderDash: [5, 5],
             },
             {
               label: 'Clarity',
-              data: dayData.map(d => d.clarity),
+              data: dataPoints.map(d => d.clarity),
               borderColor: '#64D2FF',
               tension: 0.4,
             },
             {
               label: 'Stress',
-              data: dayData.map(d => d.stress),
+              data: dataPoints.map(d => d.stress),
               borderColor: '#FF3B30',
               tension: 0.4,
             },
             {
               label: 'Motivation',
-              data: dayData.map(d => d.motivation),
+              data: dataPoints.map(d => d.motivation),
               borderColor: '#5E5CE6',
               tension: 0.4,
             },
             {
               label: 'Fulfillment',
-              data: dayData.map(d => d.fulfillment),
+              data: dataPoints.map(d => d.fulfillment),
               borderColor: '#0A84FF',
               tension: 0.4,
             },
@@ -802,7 +922,19 @@
         return;
       }
 
-      document.getElementById('entriesList').innerHTML = recent.map((e, i) => `
+      function formatDate(dateStr) {
+        const d = new Date(dateStr);
+        // Correct timezone issue where YYYY-MM-DD might be interpreted as UTC
+        const userTimezoneOffset = d.getTimezoneOffset() * 60000;
+        const adjustedDate = new Date(d.getTime() + userTimezoneOffset);
+        return adjustedDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      }
+
+      document.getElementById('entriesList').innerHTML = recent.map(e => {
+        // ... rest of render logic
+
+
+        document.getElementById('entriesList').innerHTML = recent.map((e, i) => `
         <div class="entry ${e.type !== 'quick' ? 'full' : ''}" onclick="this.classList.toggle('expanded')" id="entry-${i}">
           <div class="entry-header">
             <div class="entry-mood">${MOODS[(e.mood || 3) - 1]?.emoji || '😐'}</div>
@@ -811,10 +943,10 @@
               <div class="entry-time">${formatTime(e.time)} ${e.type === 'quick' ? '· Quick Check-in' : '· Full Log'}</div>
               <div class="entry-metrics">
                 ${METRICS.map(m =>
-        e[m.key] != null
-          ? `<span class="metric-badge" style="color:${m.color}">${m.icon} ${e[m.key]}%</span>`
-          : ''
-      ).join('')}
+          e[m.key] != null
+            ? `<span class="metric-badge" style="color:${m.color}">${m.icon} ${e[m.key]}%</span>`
+            : ''
+        ).join('')}
                 ${e.health?.sleep ? `<span class="metric-badge" style="color:#5AC8FA">😴 ${e.health.sleep}h</span>` : ''}
                 ${e.health?.exerciseMinutes ? `<span class="metric-badge" style="color:#FF2D55">🏃 ${e.health.exerciseMinutes}m</span>` : ''}
               </div>
@@ -843,70 +975,71 @@
           </div>
         </div>
       `).join('');
-    }
+      }
 
     function renderMetricNotes(metricNotes) {
-      if (!metricNotes) return '';
-      const notes = Object.entries(metricNotes).filter(([_, v]) => v && v.trim());
-      if (notes.length === 0) return '';
+          if (!metricNotes) return '';
+          const notes = Object.entries(metricNotes).filter(([_, v]) => v && v.trim());
+          if (notes.length === 0) return '';
 
-      // Additional note types for health data
-      const HEALTH_NOTES = {
-        exercise: { icon: '🏃', label: 'Exercise' },
-        sleep: { icon: '😴', label: 'Sleep' }
-      };
+          // Additional note types for health data
+          const HEALTH_NOTES = {
+            exercise: { icon: '🏃', label: 'Exercise' },
+            sleep: { icon: '😴', label: 'Sleep' }
+          };
 
-      return `
+          return `
         <div class="metric-notes">
           ${notes.map(([key, value]) => {
-        const metric = METRICS.find(m => m.key === key);
-        const healthNote = HEALTH_NOTES[key];
-        const icon = metric?.icon || healthNote?.icon || '📌';
-        const label = metric?.label || healthNote?.label || key;
-        return `<div class="metric-note"><strong>${icon} ${label}:</strong> ${escapeHtml(value)}</div>`;
-      }).join('')}
+            const metric = METRICS.find(m => m.key === key);
+            const healthNote = HEALTH_NOTES[key];
+            const icon = metric?.icon || healthNote?.icon || '📌';
+            const label = metric?.label || healthNote?.label || key;
+            return `<div class="metric-note"><strong>${icon} ${label}:</strong> ${escapeHtml(value)}</div>`;
+          }).join('')}
         </div>
       `;
-    }
+        }
 
     function escapeHtml(text) {
-      const div = document.createElement('div');
-      div.textContent = text;
-      return div.innerHTML;
-    }
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        }
 
     function formatDate(dateStr) {
-      // Parse YYYY-MM-DD as local date to avoid UTC shifts
-      const [y, m, d] = dateStr.split('-').map(Number);
-      const date = new Date(y, m - 1, d);
+          // Parse YYYY-MM-DD as local date to avoid UTC shifts
+          const [y, m, d] = dateStr.split('-').map(Number);
+          const date = new Date(y, m - 1, d);
 
-      const today = toLocalDateStr(new Date());
-      const yesterdayDate = new Date();
-      yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-      const yesterday = toLocalDateStr(yesterdayDate);
+          const today = toLocalDateStr(new Date());
+          const yesterdayDate = new Date();
+          yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+          const yesterday = toLocalDateStr(yesterdayDate);
 
-      if (dateStr === today) return 'Today';
-      if (dateStr === yesterday) return 'Yesterday';
+          if (dateStr === today) return 'Today';
+          if (dateStr === yesterday) return 'Yesterday';
 
-      // Use standard formatting but ensure it uses the local date components we parsed
-      return date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
-    }
+          // Use standard formatting but ensure it uses the local date components we parsed
+          return date.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric' });
+        }
 
     function formatTime(time) {
-      if (!time) return '';
-      const [h, m] = time.split(':');
-      const hour = parseInt(h);
-      const ampm = hour >= 12 ? 'PM' : 'AM';
-      const hour12 = hour % 12 || 12;
-      return `${hour12}:${m} ${ampm}`;
-    }
+          if (!time) return '';
+          const [h, m] = time.split(':');
+          const hour = parseInt(h);
+          const ampm = hour >= 12 ? 'PM' : 'AM';
+          const hour12 = hour % 12 || 12;
+          return `${hour12}:${m} ${ampm}`;
+        }
 
     // Auto-refresh every 5 minutes
     setInterval(() => {
-      if (document.getElementById('dashboard').style.display !== 'none') {
-        loadData();
-      }
-    }, 5 * 60 * 1000);
+          if (document.getElementById('dashboard').style.display !== 'none') {
+            loadData();
+          }
+        }, 5 * 60 * 1000);
+
   </script>
 </body>
 
