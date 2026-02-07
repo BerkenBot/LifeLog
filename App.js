@@ -14,6 +14,7 @@ import {
   Dimensions,
   PanResponder,
   KeyboardAvoidingView,
+  Linking,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -598,9 +599,18 @@ function AppContent() {
                 </TouchableOpacity>
 
                 {isGistConnected && gistUrl && (
-                  <View style={{ marginTop: 16, padding: 16, backgroundColor: 'rgba(0,200,100,0.1)', borderRadius: 12 }}>
-                    <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>📎 Share this link:</Text>
-                    <Text style={{ fontSize: 13, color: COLORS.blue }} selectable>{gistUrl}</Text>
+                  <View style={{ marginTop: 16 }}>
+                    <View style={{ padding: 16, backgroundColor: 'rgba(0,200,100,0.1)', borderRadius: 12, marginBottom: 12 }}>
+                      <Text style={{ fontSize: 12, color: COLORS.textSecondary, marginBottom: 4 }}>📎 Share this link:</Text>
+                      <Text style={{ fontSize: 13, color: COLORS.blue }} selectable>{gistUrl}</Text>
+                    </View>
+
+                    <TouchableOpacity
+                      style={{ backgroundColor: COLORS.card, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.blue }}
+                      onPress={() => Linking.openURL('https://justinberken.github.io/LifeLog/')}
+                    >
+                      <Text style={{ color: COLORS.blue, fontWeight: '700', fontSize: 16 }}>📊 View Dashboard</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
               </View>
