@@ -423,6 +423,7 @@
     }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.0.0"></script>
 </head>
 
 <body>
@@ -457,6 +458,9 @@
   </div>
 
   <script>
+    // Register the plugin
+    Chart.register(ChartDataLabels);
+
     const MOODS = [
       { emoji: '😫', label: 'Terrible', color: '#FF3B30' },
       { emoji: '😔', label: 'Bad', color: '#FF9500' },
@@ -770,6 +774,8 @@
             // For day view, we just show the raw values if they exist, normalized to 0-100 for graph
             sleep: health.sleep ? Math.min((parseFloat(health.sleep) / SLEEP_GOAL) * 100, 100) : null,
             exercise: health.exerciseMinutes ? Math.min((parseInt(health.exerciseMinutes) / EXERCISE_GOAL) * 100, 100) : null,
+            rawSleep: health.sleep ? parseFloat(health.sleep) : null,
+            rawExercise: health.exerciseMinutes ? parseInt(health.exerciseMinutes) : null
           }
         });
 
@@ -807,6 +813,8 @@
             fulfillment: avg('fulfillment'),
             sleep: sleepVal ? Math.min((sleepVal / SLEEP_GOAL) * 100, 100) : null,
             exercise: exerciseVal ? Math.min((exerciseVal / EXERCISE_GOAL) * 100, 100) : null,
+            rawSleep: sleepVal,
+            rawExercise: exerciseVal
           };
         });
       }
@@ -844,6 +852,17 @@
               borderDash: [5, 5],
               spanGaps: true,
               pointRadius: 5,
+              datalabels: {
+                display: true,
+                align: 'top',
+                anchor: 'end',
+                color: '#5AC8FA',
+                font: { weight: 'bold' },
+                formatter: function (value, context) {
+                  const raw = dataPoints[context.dataIndex].rawSleep;
+                  return raw ? raw + 'h' : '';
+                }
+              }
             },
             {
               label: 'Exercise',
@@ -853,6 +872,17 @@
               borderDash: [5, 5],
               spanGaps: true,
               pointRadius: 5,
+              datalabels: {
+                display: true,
+                align: 'bottom',
+                anchor: 'start',
+                color: '#FF2D55',
+                font: { weight: 'bold' },
+                formatter: function (value, context) {
+                  const raw = dataPoints[context.dataIndex].rawExercise;
+                  return raw ? raw + 'm' : '';
+                }
+              }
             },
             {
               label: 'Clarity',
@@ -892,6 +922,9 @@
           responsive: true,
           maintainAspectRatio: false,
           plugins: {
+            datalabels: {
+              display: false // Default hide all
+            },
             legend: {
               labels: { color: '#888' },
               onClick: function (e, legendItem, legend) {
