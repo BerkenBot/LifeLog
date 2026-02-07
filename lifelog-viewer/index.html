@@ -442,7 +442,7 @@
       <div class="stats-grid" id="statsGrid"></div>
 
       <div class="chart-container">
-        <h3 class="chart-title">📈 Trends</h3>
+        <h3 class="chart-title" id="chartTitle">📈 Trends</h3>
         <canvas id="trendChart"></canvas>
       </div>
 
@@ -621,6 +621,13 @@
     }
 
     function updateDashboard() {
+      const title = document.getElementById('chartTitle');
+      if (isDayView) {
+        title.textContent = `📈 Trends — ${selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}`;
+      } else {
+        title.textContent = '📈 Trends';
+      }
+
       const entries = getFilteredEntries();
       renderStats(entries);
       renderChart(entries);
