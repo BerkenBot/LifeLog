@@ -52,6 +52,14 @@ function AppContent() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [userSettings, setUserSettings] = useState({ sleepGoal: 8, exerciseGoal: 30 });
 
+  // Sleep/Exercise standalone modal state
+  const [showSleepExerciseModal, setShowSleepExerciseModal] = useState(false);
+  const [sleepExerciseType, setSleepExerciseType] = useState('sleep'); // 'sleep' or 'exercise'
+  const [sleepExerciseDuration, setSleepExerciseDuration] = useState('');
+  const [sleepExerciseNote, setSleepExerciseNote] = useState('');
+  const [sleepExerciseDate, setSleepExerciseDate] = useState(new Date());
+  const [editingSleepExercise, setEditingSleepExercise] = useState(null);
+
   // Sync State
   const [isSheetsConnected, setIsSheetsConnected] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -351,6 +359,55 @@ function AppContent() {
     ]);
   };
 
+  const openSleepExerciseModal = (type, entry = null) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    if (entry) {
+      setEditingSleepExercise(entry);
+      setSleepExerciseType(entry.type);
+      setSleepExerciseDuration(String(entry.duration || ''));
+      setSleepExerciseNote(entry.note || '');
+      setSleepExerciseDate(new Date(entry.timestamp));
+    } else {
+      setEditingSleepExercise(null);
+      setSleepExerciseType(type);
+      setSleepExerciseDuration('');
+      setSleepExerciseNote('');
+      setSleepExerciseDate(new Date());
+    }
+    setShowSleepExerciseModal(true);
+  };
+
+  const saveSleepExercise = async () => {
+    const duration = parseFloat(sleepExerciseDuration);
+    if (!duration || duration <= 0) return;
+
+    const dateToUse = sleepExerciseDate;
+    const entry = {
+      id: editingSleepExercise?.id || `${dateToUse.getTime()}`,
+      timestamp: dateToUse.toISOString(),
+      date: toLocalDateStr(dateToUse),
+      time: dateToUse.toTimeString().slice(0, 5),
+      type: sleepExerciseType,
+      duration,
+      note: sleepExerciseNote.trim() || null,
+    };
+
+    let updated;
+    if (editingSleepExercise) {
+      updated = entries.map(e => e.id === editingSleepExercise.id ? entry : e);
+    } else {
+      updated = [entry, ...entries];
+    }
+    updated.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    setEntries(updated);
+    await storage.saveEntries(updated);
+
+    if (isGistConnected) GistSync.syncAll(updated);
+
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowSleepExerciseModal(false);
+  };
+
   // Derived data
   const todayEntries = useMemo(() => {
     const today = toLocalDateStr(new Date());
@@ -434,6 +491,7 @@ function AppContent() {
             <TodayView
               entries={todayEntries}
               onEdit={(entry) => openCheckin('full', entry)}
+              onEditSleepExercise={(entry) => openSleepExerciseModal(entry.type, entry)}
               onDelete={deleteEntry}
               colors={COLORS}
             />
@@ -442,6 +500,7 @@ function AppContent() {
             <HistoryView
               groupedEntries={groupedEntries}
               onEdit={(entry) => openCheckin('full', entry)}
+              onEditSleepExercise={(entry) => openSleepExerciseModal(entry.type, entry)}
               onDelete={deleteEntry}
               colors={COLORS}
             />
@@ -458,12 +517,22 @@ function AppContent() {
 
         {/* FAB */}
         <View style={styles.fabContainer}>
-          <TouchableOpacity style={styles.fabSecondary} onPress={() => openCheckin('full')}>
-            <Text style={styles.fabSecondaryText}>Full Log</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.fab} onPress={() => openCheckin('quick')}>
-            <Text style={[styles.fabText, { color: COLORS.text }]}>+</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <TouchableOpacity style={styles.fabSecondary} onPress={() => openSleepExerciseModal('sleep')}>
+              <Text style={styles.fabSecondaryText}>😴 Sleep</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.fabSecondary} onPress={() => openSleepExerciseModal('exercise')}>
+              <Text style={styles.fabSecondaryText}>🏃 Exercise</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity style={styles.fabSecondary} onPress={() => openCheckin('full')}>
+              <Text style={styles.fabSecondaryText}>Full Log</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.fab} onPress={() => openCheckin('quick')}>
+              <Text style={[styles.fabText, { color: COLORS.text }]}>+</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Check-In Modal */}
@@ -489,6 +558,22 @@ function AppContent() {
           setEntryDate={setEntryDate}
           reflections={reflections}
           setReflections={setReflections}
+        />
+
+        {/* Sleep/Exercise Modal */}
+        <SleepExerciseModal
+          visible={showSleepExerciseModal}
+          type={sleepExerciseType}
+          duration={sleepExerciseDuration}
+          setDuration={setSleepExerciseDuration}
+          note={sleepExerciseNote}
+          setNote={setSleepExerciseNote}
+          entryDate={sleepExerciseDate}
+          setEntryDate={setSleepExerciseDate}
+          editingEntry={editingSleepExercise}
+          onClose={() => { setShowSleepExerciseModal(false); setEditingSleepExercise(null); }}
+          onSave={saveSleepExercise}
+          colors={COLORS}
         />
 
         {/* Settings Modal */}
@@ -611,7 +696,7 @@ function AppContent() {
 
                     <TouchableOpacity
                       style={{ backgroundColor: COLORS.card, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: COLORS.blue }}
-                      onPress={() => Linking.openURL('https://justinberken.github.io/LifeLog/lifelog-viewer/index.html')}
+                      onPress={() => Linking.openURL('https://berkenbot.github.io/LifeLog/lifelog-viewer/index.html')}
                     >
                       <Text style={{ color: COLORS.blue, fontWeight: '700', fontSize: 16 }}>📊 View Dashboard</Text>
                     </TouchableOpacity>
@@ -669,7 +754,7 @@ function AppContent() {
 // ============================================================
 // TODAY VIEW
 // ============================================================
-function TodayView({ entries, onEdit, onDelete, colors: COLORS }) {
+function TodayView({ entries, onEdit, onEditSleepExercise, onDelete, colors: COLORS }) {
   if (entries.length === 0) {
     return (
       <View style={styles.emptyState}>
@@ -680,13 +765,22 @@ function TodayView({ entries, onEdit, onDelete, colors: COLORS }) {
     );
   }
 
-  // Today summary
-  const avgMood = entries.reduce((s, e) => s + (e.mood || 0), 0) / entries.length;
-  const avgEnergy = entries.filter(e => e.energy).reduce((s, e) => s + e.energy, 0) / (entries.filter(e => e.energy).length || 1);
-  const avgStress = entries.filter(e => e.stress).reduce((s, e) => s + e.stress, 0) / (entries.filter(e => e.stress).length || 1);
-  const avgClarity = entries.filter(e => e.clarity).reduce((s, e) => s + e.clarity, 0) / (entries.filter(e => e.clarity).length || 1);
+  // Separate mood entries from sleep/exercise entries
+  const moodEntries = entries.filter(e => e.type === 'quick' || e.type === 'full');
+  const sleepEntries = entries.filter(e => e.type === 'sleep');
+  const exerciseEntries = entries.filter(e => e.type === 'exercise');
 
-  const cardStyle = { backgroundColor: COLORS.card, borderRadius: 20, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)' };
+  // Today summary - only from mood entries
+  const avgMood = moodEntries.length ? moodEntries.reduce((s, e) => s + (e.mood || 0), 0) / moodEntries.length : 0;
+  const avgEnergy = moodEntries.filter(e => e.energy).reduce((s, e) => s + e.energy, 0) / (moodEntries.filter(e => e.energy).length || 1);
+  const avgStress = moodEntries.filter(e => e.stress).reduce((s, e) => s + e.stress, 0) / (moodEntries.filter(e => e.stress).length || 1);
+  const avgClarity = moodEntries.filter(e => e.clarity).reduce((s, e) => s + e.clarity, 0) / (moodEntries.filter(e => e.clarity).length || 1);
+
+  // Sum sleep/exercise totals (standalone + from full check-in health data)
+  const totalSleep = sleepEntries.reduce((s, e) => s + (e.duration || 0), 0)
+    + moodEntries.filter(e => e.health?.sleep).reduce((s, e) => s + parseFloat(e.health.sleep), 0);
+  const totalExercise = exerciseEntries.reduce((s, e) => s + (e.duration || 0), 0)
+    + moodEntries.filter(e => e.health?.exerciseMinutes).reduce((s, e) => s + parseInt(e.health.exerciseMinutes), 0);
 
   return (
     <View style={styles.todayContainer}>
@@ -694,31 +788,73 @@ function TodayView({ entries, onEdit, onDelete, colors: COLORS }) {
       <View style={styles.card}>
         <View style={styles.summaryHeader}>
           <Text style={styles.label}>Today's Snapshot</Text>
-          <Text style={styles.labelSecondary}>{entries.length} check-in{entries.length !== 1 ? 's' : ''}</Text>
+          <Text style={styles.labelSecondary}>{entries.length} entr{entries.length !== 1 ? 'ies' : 'y'}</Text>
         </View>
         <View style={styles.summaryRow}>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryEmoji}>{MOODS[Math.round(avgMood) - 1]?.emoji || '😐'}</Text>
-            <Text style={styles.summaryLabel}>Mood</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: COLORS.orange }]}>{avgEnergy.toFixed(1)}</Text>
-            <Text style={styles.summaryLabel}>Energy</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: COLORS.teal }]}>{avgClarity.toFixed(1)}</Text>
-            <Text style={styles.summaryLabel}>Clarity</Text>
-          </View>
-          <View style={styles.summaryItem}>
-            <Text style={[styles.summaryValue, { color: COLORS.red }]}>{avgStress.toFixed(1)}</Text>
-            <Text style={styles.summaryLabel}>Stress</Text>
-          </View>
+          {moodEntries.length > 0 && (
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryEmoji}>{MOODS[Math.round(avgMood) - 1]?.emoji || '😐'}</Text>
+              <Text style={styles.summaryLabel}>Mood</Text>
+            </View>
+          )}
+          {moodEntries.length > 0 && (
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: COLORS.orange }]}>{avgEnergy.toFixed(1)}</Text>
+              <Text style={styles.summaryLabel}>Energy</Text>
+            </View>
+          )}
+          {totalSleep > 0 && (
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: SLEEP_METRIC.color }]}>{totalSleep.toFixed(1)}</Text>
+              <Text style={styles.summaryLabel}>Sleep (hrs)</Text>
+            </View>
+          )}
+          {totalExercise > 0 && (
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: EXERCISE_METRIC.color }]}>{totalExercise}</Text>
+              <Text style={styles.summaryLabel}>Exercise (min)</Text>
+            </View>
+          )}
         </View>
       </View>
 
       {/* Timeline */}
       <View style={styles.timeline}>
         {entries.map((entry, i) => {
+          // Sleep/Exercise standalone entries
+          if (entry.type === 'sleep' || entry.type === 'exercise') {
+            const isSleep = entry.type === 'sleep';
+            const emoji = isSleep ? '😴' : '🏃';
+            const color = isSleep ? SLEEP_METRIC.color : EXERCISE_METRIC.color;
+            const unit = isSleep ? 'hrs' : 'min';
+            return (
+              <View key={entry.id} style={styles.timelineItem}>
+                <View style={[styles.timelineNode, { backgroundColor: color + '20' }]}>
+                  <Text style={styles.timelineEmoji}>{emoji}</Text>
+                </View>
+                {i < entries.length - 1 && <View style={styles.timelineLine} />}
+                <View style={styles.timelineCard}>
+                  <View style={styles.timelineHeader}>
+                    <View>
+                      <Text style={styles.timelineTime}>{formatTime(entry.time)}</Text>
+                      <Text style={styles.timelineMoodLabel}>{isSleep ? 'Sleep' : 'Exercise'} · {entry.duration} {unit}</Text>
+                    </View>
+                    <View style={styles.timelineActions}>
+                      <TouchableOpacity onPress={() => onEditSleepExercise(entry)} style={styles.actionBtn}>
+                        <Text style={styles.actionIcon}>✏️</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={() => onDelete(entry.id)} style={styles.actionBtn}>
+                        <Text style={styles.actionIcon}>🗑</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                  {entry.note && <Text style={styles.timelineNote}>{entry.note}</Text>}
+                </View>
+              </View>
+            );
+          }
+
+          // Mood check-in entries (quick/full)
           const m = MOODS.find(x => x.value === entry.mood) || MOODS[2];
           return (
             <View key={entry.id} style={styles.timelineItem}>
@@ -763,7 +899,7 @@ function TodayView({ entries, onEdit, onDelete, colors: COLORS }) {
 // ============================================================
 // HISTORY VIEW
 // ============================================================
-function HistoryView({ groupedEntries, onEdit, onDelete, colors: COLORS }) {
+function HistoryView({ groupedEntries, onEdit, onEditSleepExercise, onDelete, colors: COLORS }) {
   const cardStyle = { backgroundColor: COLORS.card, borderRadius: 20, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 8, borderWidth: 1, borderColor: 'rgba(0,0,0,0.02)' };
   const [expanded, setExpanded] = useState({});
 
@@ -780,8 +916,15 @@ function HistoryView({ groupedEntries, onEdit, onDelete, colors: COLORS }) {
     <View style={styles.historyContainer}>
       {groupedEntries.map(([date, dayEntries]) => {
         const isExpanded = expanded[date] !== false;
-        const avgMood = dayEntries.reduce((s, e) => s + (e.mood || 0), 0) / dayEntries.length;
-        const emoji = MOODS[Math.round(avgMood) - 1]?.emoji || '😐';
+        const moodEntries = dayEntries.filter(e => e.type === 'quick' || e.type === 'full');
+        const avgMood = moodEntries.length ? moodEntries.reduce((s, e) => s + (e.mood || 0), 0) / moodEntries.length : 0;
+        const emoji = moodEntries.length ? (MOODS[Math.round(avgMood) - 1]?.emoji || '😐') : '📋';
+
+        // Daily sleep/exercise totals
+        const daySleep = dayEntries.filter(e => e.type === 'sleep').reduce((s, e) => s + (e.duration || 0), 0)
+          + moodEntries.filter(e => e.health?.sleep).reduce((s, e) => s + parseFloat(e.health.sleep), 0);
+        const dayExercise = dayEntries.filter(e => e.type === 'exercise').reduce((s, e) => s + (e.duration || 0), 0)
+          + moodEntries.filter(e => e.health?.exerciseMinutes).reduce((s, e) => s + parseInt(e.health.exerciseMinutes), 0);
 
         return (
           <View key={date} style={cardStyle}>
@@ -793,7 +936,11 @@ function HistoryView({ groupedEntries, onEdit, onDelete, colors: COLORS }) {
                 <Text style={styles.dayEmoji}>{emoji}</Text>
                 <View>
                   <Text style={[styles.dayTitle, { color: COLORS.text }]}>{formatDate(date)}</Text>
-                  <Text style={[styles.daySubtitle, { color: COLORS.textSecondary }]}>{dayEntries.length} check-in{dayEntries.length !== 1 ? 's' : ''}</Text>
+                  <Text style={[styles.daySubtitle, { color: COLORS.textSecondary }]}>
+                    {dayEntries.length} entr{dayEntries.length !== 1 ? 'ies' : 'y'}
+                    {daySleep > 0 ? `  ·  😴 ${daySleep}h` : ''}
+                    {dayExercise > 0 ? `  ·  🏃 ${dayExercise}m` : ''}
+                  </Text>
                 </View>
               </View>
               <Text style={[styles.chevron, { color: COLORS.textTertiary }]}>{isExpanded ? '▼' : '▶'}</Text>
@@ -802,6 +949,25 @@ function HistoryView({ groupedEntries, onEdit, onDelete, colors: COLORS }) {
             {isExpanded && (
               <View style={styles.dayEntries}>
                 {dayEntries.map(entry => {
+                  // Sleep/Exercise standalone entries
+                  if (entry.type === 'sleep' || entry.type === 'exercise') {
+                    const isSleep = entry.type === 'sleep';
+                    const entryEmoji = isSleep ? '😴' : '🏃';
+                    const unit = isSleep ? 'hrs' : 'min';
+                    const color = isSleep ? SLEEP_METRIC.color : EXERCISE_METRIC.color;
+                    return (
+                      <TouchableOpacity key={entry.id} style={[styles.dayEntry, { backgroundColor: color + '10' }]} onPress={() => onEditSleepExercise(entry)}>
+                        <Text style={styles.dayEntryEmoji}>{entryEmoji}</Text>
+                        <View style={styles.dayEntryContent}>
+                          <Text style={[styles.dayEntryTime, { color: COLORS.text }]}>{formatTime(entry.time)} · {entry.duration} {unit}</Text>
+                          {entry.note && <Text style={[styles.dayEntryNote, { color: COLORS.textSecondary }]} numberOfLines={1}>{entry.note}</Text>}
+                        </View>
+                        <Text style={[styles.entryTypeBadge, { color }]}>{isSleep ? 'Sleep' : 'Exercise'}</Text>
+                        <Text>✏️</Text>
+                      </TouchableOpacity>
+                    );
+                  }
+
                   const m = MOODS.find(x => x.value === entry.mood) || MOODS[2];
                   // Full entries get a distinct gray background
                   const entryBg = entry.type === 'full'
@@ -998,6 +1164,26 @@ function UnifiedTrendChart({ entries, period, sleepGoal, exerciseGoal, colors: C
   // Get data points based on period
   const days = [];
 
+  // Helper: sum sleep from all sources for a set of entries
+  const getSleepSum = (entrySet) => {
+    let total = 0;
+    entrySet.forEach(e => {
+      if (e.type === 'sleep' && e.duration) total += parseFloat(e.duration);
+      else if (e.health && e.health.sleep) total += parseFloat(e.health.sleep);
+    });
+    return total > 0 ? total : null;
+  };
+
+  // Helper: sum exercise from all sources for a set of entries
+  const getExerciseSum = (entrySet) => {
+    let total = 0;
+    entrySet.forEach(e => {
+      if (e.type === 'exercise' && e.duration) total += parseFloat(e.duration);
+      else if (e.health && e.health.exerciseMinutes) total += parseInt(e.health.exerciseMinutes);
+    });
+    return total > 0 ? total : null;
+  };
+
   if (period === 'day') {
     // Hourly data for today
     const today = toLocalDateStr(new Date());
@@ -1006,26 +1192,16 @@ function UnifiedTrendChart({ entries, period, sleepGoal, exerciseGoal, colors: C
       const hourEntries = entries.filter(e => e.date === today && e.time && e.time.startsWith(hourStr));
 
       const getAvg = (key) => {
-        const valid = hourEntries.filter(e => e[key] != null);
+        const valid = hourEntries.filter(e => e[key] != null && e.type !== 'sleep' && e.type !== 'exercise');
         return valid.length ? valid.reduce((s, e) => s + e[key], 0) / valid.length : null;
-      };
-
-      const getSleepAvg = () => {
-        const valid = hourEntries.filter(e => e.health && e.health.sleep);
-        return valid.length ? valid.reduce((s, e) => s + parseFloat(e.health.sleep), 0) / valid.length : null;
-      };
-
-      const getExerciseAvg = () => {
-        const valid = hourEntries.filter(e => e.health && e.health.exerciseMinutes);
-        return valid.length ? valid.reduce((s, e) => s + parseInt(e.health.exerciseMinutes), 0) / valid.length : null;
       };
 
       days.push({
         label: i,
         values: {
           mood: getAvg('mood'),
-          sleep: getSleepAvg(),
-          exercise: getExerciseAvg(),
+          sleep: getSleepSum(hourEntries),
+          exercise: getExerciseSum(hourEntries),
           ...METRICS.reduce((acc, m) => ({ ...acc, [m.key]: getAvg(m.key) }), {})
         }
       });
@@ -1042,7 +1218,6 @@ function UnifiedTrendChart({ entries, period, sleepGoal, exerciseGoal, colors: C
       if (isYear) {
         const d = new Date();
         d.setMonth(d.getMonth() - i);
-        // Simplified month filter
         const monthStr = d.toISOString().substring(0, 7); // YYYY-MM
         dateEntries = entries.filter(e => e.date.startsWith(monthStr));
         dateLabel = d.toLocaleDateString('en', { month: 'short' });
@@ -1055,26 +1230,16 @@ function UnifiedTrendChart({ entries, period, sleepGoal, exerciseGoal, colors: C
       }
 
       const getAvg = (key) => {
-        const valid = dateEntries.filter(e => e[key] != null);
+        const valid = dateEntries.filter(e => e[key] != null && e.type !== 'sleep' && e.type !== 'exercise');
         return valid.length ? valid.reduce((s, e) => s + e[key], 0) / valid.length : null;
-      };
-
-      const getSleepAvg = () => {
-        const valid = dateEntries.filter(e => e.health && e.health.sleep);
-        return valid.length ? valid.reduce((s, e) => s + parseFloat(e.health.sleep), 0) / valid.length : null;
-      };
-
-      const getExerciseAvg = () => {
-        const valid = dateEntries.filter(e => e.health && e.health.exerciseMinutes);
-        return valid.length ? valid.reduce((s, e) => s + parseInt(e.health.exerciseMinutes), 0) / valid.length : null;
       };
 
       days.push({
         label: dateLabel,
         values: {
           mood: getAvg('mood'),
-          sleep: getSleepAvg(),
-          exercise: getExerciseAvg(),
+          sleep: getSleepSum(dateEntries),
+          exercise: getExerciseSum(dateEntries),
           ...METRICS.reduce((acc, m) => ({ ...acc, [m.key]: getAvg(m.key) }), {})
         }
       });
@@ -1181,6 +1346,100 @@ function UnifiedTrendChart({ entries, period, sleepGoal, exerciseGoal, colors: C
         })}
       </View>
     </View>
+  );
+}
+
+// ============================================================
+// SLEEP / EXERCISE MODAL
+// ============================================================
+function SleepExerciseModal({ visible, type, duration, setDuration, note, setNote, entryDate, setEntryDate, editingEntry, onClose, onSave, colors: COLORS }) {
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const isSleep = type === 'sleep';
+  const emoji = isSleep ? '😴' : '🏃';
+  const title = isSleep ? 'Log Sleep' : 'Log Exercise';
+  const unit = isSleep ? 'hours' : 'minutes';
+  const placeholder = isSleep ? 'e.g. 7.5' : 'e.g. 30';
+
+  const handleDateChange = (event, selectedDate) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (selectedDate) setEntryDate(selectedDate);
+  };
+
+  const formatDateDisplay = () => {
+    const now = new Date();
+    const isToday = entryDate.toDateString() === now.toDateString();
+    const timeDiff = Math.abs(now - entryDate);
+    if (isToday && timeDiff < 60000) return 'Right now';
+    const hours = entryDate.getHours();
+    const minutes = entryDate.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 || 12;
+    return `${formatDate(toLocalDateStr(entryDate))} at ${hour12}:${minutes} ${ampm}`;
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1, backgroundColor: COLORS.modalBg || COLORS.background }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: COLORS.card, borderBottomWidth: 1, borderBottomColor: COLORS.borderLight }}>
+            <TouchableOpacity onPress={onClose}>
+              <Text style={{ fontSize: 17, color: COLORS.blue }}>Cancel</Text>
+            </TouchableOpacity>
+            <Text style={{ fontSize: 17, fontWeight: '600', color: COLORS.text }}>{emoji} {title}</Text>
+            <TouchableOpacity onPress={onSave} disabled={!duration || parseFloat(duration) <= 0}>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: (!duration || parseFloat(duration) <= 0) ? COLORS.textTertiary : COLORS.blue }}>{editingEntry ? 'Update' : 'Save'}</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{ flex: 1, paddingHorizontal: 20 }}>
+            <TouchableOpacity onPress={() => setShowDatePicker(true)}>
+              <Text style={{ textAlign: 'center', color: COLORS.blue, fontSize: 14, fontWeight: '500', marginTop: 24, marginBottom: 8, textDecorationLine: 'underline' }}>
+                📅 {formatDateDisplay()}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <View style={{ backgroundColor: COLORS.background, borderRadius: 12, marginVertical: 12, paddingBottom: 8 }}>
+                <DateTimePicker
+                  value={entryDate}
+                  mode="datetime"
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={handleDateChange}
+                  maximumDate={new Date()}
+                  style={{ height: 180 }}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    style={{ alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 24, backgroundColor: COLORS.blue, borderRadius: 8, marginTop: 4 }}
+                    onPress={() => setShowDatePicker(false)}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginTop: 16 }}>Duration ({unit})</Text>
+            <TextInput
+              style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, fontSize: 28, fontWeight: '700', color: COLORS.text, textAlign: 'center' }}
+              value={duration}
+              onChangeText={setDuration}
+              placeholder={placeholder}
+              placeholderTextColor={COLORS.textTertiary}
+              keyboardType="decimal-pad"
+              autoFocus
+            />
+            <Text style={{ fontSize: 16, fontWeight: '700', color: COLORS.textSecondary, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 12, marginTop: 24 }}>Note (optional)</Text>
+            <TextInput
+              style={{ backgroundColor: COLORS.card, borderRadius: 16, padding: 16, fontSize: 16, minHeight: 80, textAlignVertical: 'top', color: COLORS.text }}
+              value={note}
+              onChangeText={setNote}
+              placeholder={isSleep ? 'How did you sleep?' : 'What did you do?'}
+              placeholderTextColor={COLORS.textTertiary}
+              multiline
+            />
+            <View style={{ height: 40 }} />
+          </ScrollView>
+        </SafeAreaView>
+      </KeyboardAvoidingView>
+    </Modal>
   );
 }
 
@@ -1353,10 +1612,8 @@ function CheckInModal({
                 <View style={styles.healthGrid}>
                   {[
                     { k: 'steps', l: 'Steps', i: '👟' },
-                    { k: 'sleep', l: 'Sleep (hrs)', i: '😴', noteKey: 'sleep' },
                     { k: 'heartRate', l: 'Heart Rate', i: '❤️' },
                     { k: 'calories', l: 'Calories', i: '🔥' },
-                    { k: 'exerciseMinutes', l: 'Exercise (min)', i: '🏃', noteKey: 'exercise' },
                   ].map(f => (
                     <View key={f.k} style={styles.healthCard}>
                       <Text style={styles.healthLabel}>{f.i} {f.l}</Text>
